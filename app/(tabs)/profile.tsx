@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, Image } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { useRouter } from 'expo-router';
-import { Moon, Sun, LogOut, User, Award, CircleHelp as HelpCircle, Heart, MapPin, Shield, Settings, ChevronRight } from 'lucide-react-native';
+import { Moon, Sun, LogOut, User, Award, CircleHelp as HelpCircle, Heart, MapPin, Shield, Settings, ChevronRight, Trash2, Database } from 'lucide-react-native';
 import Header from '@/components/ui/Header';
 import Button from '@/components/ui/Button';
 
 export default function ProfileScreen() {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
+  const { clearCache, lastSyncTime, cachedMachines, isConnected } = useNetwork();
   const router = useRouter();
   const [contributionCount, setContributionCount] = useState(0);
   const [badgesCount, setBadgesCount] = useState(0);
@@ -26,7 +28,31 @@ export default function ProfileScreen() {
     await signOut();
   };
 
-  const MenuItem = ({ icon, title, onPress, chevron = true, badge }: any) => (
+  const handleClearCache = async () => {
+    try {
+      await clearCache();
+      alert('Cache vidé avec succès');
+    } catch (error) {
+      alert('Erreur lors du vidage du cache');
+    }
+  };
+
+  const formatLastSync = () => {
+    if (!lastSyncTime) return 'Jamais synchronisé';
+    
+    const now = new Date();
+    const diff = now.getTime() - lastSyncTime.getTime();
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (minutes < 1) return 'À l\'instant';
+    if (minutes < 60) return `Il y a ${minutes} min`;
+    if (hours < 24) return `Il y a ${hours}h`;
+    return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
+  };
+
+  const MenuItem = ({ icon, title, onPress, chevron = true, badge, subtitle }: any) => (
     <TouchableOpacity 
       style={[styles.menuItem, { backgroundColor: theme.colors.card }]} 
       onPress={onPress}
@@ -36,7 +62,14 @@ export default function ProfileScreen() {
         <View style={[styles.menuItemIcon, { backgroundColor: theme.colors.background }]}>
           {icon}
         </View>
-        <Text style={[styles.menuItemText, { color: theme.colors.text }]}>{title}</Text>
+        <View style={styles.menuItemTextContainer}>
+          <Text style={[styles.menuItemText, { color: theme.colors.text }]}>{title}</Text>
+          {subtitle && (
+            <Text style={[styles.menuItemSubtitle, { color: theme.colors.textSecondary }]}>
+              {subtitle}
+            </Text>
+          )}
+        </View>
       </View>
       
       {badge && (
@@ -80,6 +113,15 @@ export default function ProfileScreen() {
                 <Text style={[styles.profileEmail, { color: theme.colors.textSecondary }]}>
                   {user.email}
                 </Text>
+                <View style={styles.connectionStatus}>
+                  <View style={[
+                    styles.connectionDot, 
+                    { backgroundColor: isConnected ? theme.colors.success : theme.colors.warning }
+                  ]} />
+                  <Text style={[styles.connectionText, { color: theme.colors.textSecondary }]}>
+                    {isConnected ? 'En ligne' : 'Hors ligne'}
+                  </Text>
+                </View>
               </View>
             </View>
             
@@ -156,6 +198,27 @@ export default function ProfileScreen() {
             icon={<Settings size={20} color={theme.colors.primary} />}
             title="Préférences"
             onPress={() => {}}
+          />
+        </View>
+      </View>
+
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>Données hors ligne</Text>
+        
+        <View style={styles.menuGroup}>
+          <MenuItem 
+            icon={<Database size={20} color={theme.colors.primary} />}
+            title="Cache des distributeurs"
+            subtitle={`${cachedMachines.length} distributeurs • ${formatLastSync()}`}
+            onPress={() => {}}
+          />
+          
+          <MenuItem 
+            icon={<Trash2 size={20} color={theme.colors.error} />}
+            title="Vider le cache"
+            subtitle="Supprime toutes les données hors ligne"
+            onPress={handleClearCache}
+            chevron={false}
           />
         </View>
       </View>
@@ -285,6 +348,21 @@ const styles = StyleSheet.create({
   profileEmail: {
     fontFamily: 'Inter-Regular',
     fontSize: 14,
+    marginBottom: 8,
+  },
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  connectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  connectionText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -366,6 +444,7 @@ const styles = StyleSheet.create({
   menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   menuItemIcon: {
     width: 36,
@@ -375,9 +454,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  menuItemTextContainer: {
+    flex: 1,
+  },
   menuItemText: {
     fontFamily: 'Inter-Medium',
     fontSize: 16,
+  },
+  menuItemSubtitle: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    marginTop: 2,
   },
   badge: {
     paddingHorizontal: 8,

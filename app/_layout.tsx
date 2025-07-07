@@ -9,6 +9,7 @@ import { SplashScreen } from 'expo-router';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { VendingMachineProvider } from '@/contexts/VendingMachineContext';
+import { NetworkProvider } from '@/contexts/NetworkContext';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -37,17 +38,19 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <VendingMachineProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
-        </VendingMachineProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <NetworkProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <VendingMachineProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="auto" />
+          </VendingMachineProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </NetworkProvider>
   );
 }

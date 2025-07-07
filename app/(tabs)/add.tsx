@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platform, Image } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { useVendingMachines } from '@/contexts/VendingMachineContext';
-import { Camera, X, Upload, Map } from 'lucide-react-native';
+import { Camera, X, Upload, Map, WifiOff } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import CategorySelector from '@/components/forms/CategorySelector';
@@ -14,6 +15,7 @@ import Button from '@/components/ui/Button';
 export default function AddScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { isConnected } = useNetwork();
   const { addVendingMachine } = useVendingMachines();
 
   const [name, setName] = useState('');
@@ -124,6 +126,11 @@ export default function AddScreen() {
       return;
     }
 
+    if (!isConnected) {
+      alert('Impossible d\'ajouter un distributeur en mode hors ligne');
+      return;
+    }
+
     if (!validateForm()) return;
 
     setLoading(true);
@@ -179,6 +186,15 @@ export default function AddScreen() {
           </View>
         )}
 
+        {!isConnected && (
+          <View style={[styles.offlineWarning, { backgroundColor: theme.colors.error + '20' }]}>
+            <WifiOff size={20} color={theme.colors.error} />
+            <Text style={[styles.offlineText, { color: theme.colors.error }]}>
+              Mode hors ligne - Impossible d'ajouter un distributeur
+            </Text>
+          </View>
+        )}
+
         <View style={styles.imageSection}>
           {image ? (
             <View style={styles.imagePreviewContainer}>
@@ -203,6 +219,7 @@ export default function AddScreen() {
             <TouchableOpacity 
               style={[styles.imageButton, { backgroundColor: theme.colors.primary }]} 
               onPress={takePhoto}
+              disabled={!isConnected}
             >
               <Camera size={24} color="#fff" />
               <Text style={styles.imageButtonText}>Prendre photo</Text>
@@ -211,6 +228,7 @@ export default function AddScreen() {
             <TouchableOpacity 
               style={[styles.imageButton, { backgroundColor: theme.colors.secondary }]} 
               onPress={pickImage}
+              disabled={!isConnected}
             >
               <Upload size={24} color="#fff" />
               <Text style={styles.imageButtonText}>Choisir image</Text>
@@ -235,6 +253,7 @@ export default function AddScreen() {
             onChangeText={setName}
             placeholder="Ex: Distributeur de pain Boulangerie Martin"
             placeholderTextColor={theme.colors.text + '80'}
+            editable={isConnected}
           />
           {errors.name && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.name}</Text>}
         </View>
@@ -255,6 +274,7 @@ export default function AddScreen() {
             <TouchableOpacity 
               style={[styles.locationButton, { backgroundColor: theme.colors.primary }]}
               onPress={getCurrentLocation}
+              disabled={!isConnected}
             >
               <Map size={16} color="#fff" />
               <Text style={styles.locationButtonText}>Position actuelle</Text>
@@ -275,6 +295,7 @@ export default function AddScreen() {
             placeholder="Adresse complète"
             placeholderTextColor={theme.colors.text + '80'}
             multiline
+            editable={isConnected}
           />
           {errors.address && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.address}</Text>}
           {errors.location && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.location}</Text>}
@@ -296,6 +317,7 @@ export default function AddScreen() {
             placeholder="Ex: 3.50"
             placeholderTextColor={theme.colors.text + '80'}
             keyboardType="numeric"
+            editable={isConnected}
           />
           {errors.averagePrice && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.averagePrice}</Text>}
         </View>
@@ -318,6 +340,7 @@ export default function AddScreen() {
             multiline
             numberOfLines={5}
             textAlignVertical="top"
+            editable={isConnected}
           />
         </View>
 
@@ -325,7 +348,7 @@ export default function AddScreen() {
           title="Ajouter ce distributeur"
           onPress={handleSubmit}
           loading={loading}
-          disabled={!user || loading}
+          disabled={!user || loading || !isConnected}
           style={styles.submitButton}
         />
       </View>
@@ -360,6 +383,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     textDecorationLine: 'underline',
   },
+  offlineWarning: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  offlineText: {
+    fontFamily: 'Inter-Medium',
+    marginLeft: 8,
+    flex: 1,
+  },
   imageSection: {
     marginBottom: 24,
   },
@@ -387,6 +422,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     flex: 0.48,
+    opacity: 1,
   },
   imageButtonText: {
     color: '#fff',

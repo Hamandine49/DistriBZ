@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Dimensions, Platform, Text, TouchableOpacity } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { MapPin, Layers, Crosshair, Info } from 'lucide-react-native';
+import { MapPin, Layers, Crosshair, Info, RefreshCw } from 'lucide-react-native';
 import { useVendingMachines } from '@/contexts/VendingMachineContext';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import FilterBar from '@/components/filters/FilterBar';
 import MapInfoCard from '@/components/map/MapInfoCard';
+import OfflineMapView from '@/components/map/OfflineMapView';
+import OfflineBanner from '@/components/ui/OfflineBanner';
 import { VendingMachine } from '@/types/vendingMachine';
 import { useRouter } from 'expo-router';
 import CategoryMarker from '@/components/map/CategoryMarker';
@@ -15,6 +18,7 @@ import SearchBar from '@/components/search/SearchBar';
 
 export default function MapScreen() {
   const { theme } = useTheme();
+  const { isConnected, isOfflineMode } = useNetwork();
   const { vendingMachines, getVendingMachines, filteredMachines, setFilter } = useVendingMachines();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -26,6 +30,7 @@ export default function MapScreen() {
     longitudeDelta: 10,
   });
   const [showInfo, setShowInfo] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const mapRef = useRef<MapView>(null);
   const router = useRouter();
 
@@ -58,17 +63,19 @@ export default function MapScreen() {
     setShowInfo(true);
     
     // Animate to the selected machine
-    mapRef.current?.animateToRegion({
-      latitude: machine.latitude,
-      longitude: machine.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    }, 1000);
+    if (mapRef.current && isConnected) {
+      mapRef.current.animateToRegion({
+        latitude: machine.latitude,
+        longitude: machine.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 1000);
+    }
   };
 
   const centerOnUserLocation = () => {
-    if (location) {
-      mapRef.current?.animateToRegion({
+    if (location && mapRef.current && isConnected) {
+      mapRef.current.animateToRegion({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         latitudeDelta: 0.01,
@@ -86,39 +93,61 @@ export default function MapScreen() {
     setShowInfo(false);
   };
 
+  const handleRetryConnection = async () => {
+    if (isConnected) {
+      setRefreshing(true);
+      try {
+        await getVendingMachines();
+      } finally {
+        setRefreshing(false);
+      }
+    }
+  };
+
   const getMapStyle = () => {
     return theme.dark ? require('@/constants/darkMapStyle.json') : [];
   };
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={region}
-        showsUserLocation
-        showsMyLocationButton={false}
-        showsCompass={false}
-        customMapStyle={getMapStyle()}
-      >
-        {filteredMachines.map((machine) => (
-          <Marker
-            key={machine.id}
-            coordinate={{
-              latitude: machine.latitude,
-              longitude: machine.longitude,
-            }}
-            onPress={() => handleMarkerPress(machine)}
-          >
-            <CategoryMarker category={machine.category} />
-          </Marker>
-        ))}
-      </MapView>
+      <OfflineBanner onRetry={handleRetryConnection} />
+      
+      {isOfflineMode ? (
+        <OfflineMapView 
+          onMachinePress={handleMarkerPress}
+          selectedCategory={filteredMachines.length > 0 ? undefined : 'all'}
+        />
+      ) : (
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={PROVIDER_GOOGLE}
+          initialRegion={region}
+          showsUserLocation
+          showsMyLocationButton={false}
+          showsCompass={false}
+          customMapStyle={getMapStyle()}
+        >
+          {filteredMachines.map((machine) => (
+            <Marker
+              key={machine.id}
+              coordinate={{
+                latitude: machine.latitude,
+                longitude: machine.longitude,
+              }}
+              onPress={() => handleMarkerPress(machine)}
+            >
+              <CategoryMarker category={machine.category} />
+            </Marker>
+          ))}
+        </MapView>
+      )}
 
-      <View style={[styles.searchContainer, { backgroundColor: theme.colors.card }]}>
-        <SearchBar onSearchChange={() => {}} />
-      </View>
+      {isConnected && (
+        <View style={[styles.searchContainer, { backgroundColor: theme.colors.card }]}>
+          <SearchBar onSearchChange={() => {}} />
+        </View>
+      )}
 
       <View style={styles.filterContainer}>
         <FilterBar onFilterChange={handleFilterChange} />
@@ -130,23 +159,28 @@ export default function MapScreen() {
         </View>
       )}
 
-      <View style={styles.actionButtonsContainer}>
-        <FloatingActionButton 
-          icon={<Layers color={theme.colors.text} size={24} />} 
-          onPress={() => {}} 
-          style={{ backgroundColor: theme.colors.card }}
-        />
-        <FloatingActionButton 
-          icon={<Crosshair color={theme.colors.text} size={24} />} 
-          onPress={centerOnUserLocation} 
-          style={{ backgroundColor: theme.colors.card }}
-        />
-        <FloatingActionButton 
-          icon={<Info color={theme.colors.text} size={24} />} 
-          onPress={() => setShowInfo(!showInfo)} 
-          style={{ backgroundColor: theme.colors.card }}
-        />
-      </View>
+      {isConnected && (
+        <View style={styles.actionButtonsContainer}>
+          <FloatingActionButton 
+            icon={<Layers color={theme.colors.text} size={24} />} 
+            onPress={() => {}} 
+            style={{ backgroundColor: theme.colors.card }}
+          />
+          <FloatingActionButton 
+            icon={<Crosshair color={theme.colors.text} size={24} />} 
+            onPress={centerOnUserLocation} 
+            style={{ backgroundColor: theme.colors.card }}
+          />
+          <FloatingActionButton 
+            icon={refreshing ? 
+              <RefreshCw color={theme.colors.primary} size={24} /> : 
+              <Info color={theme.colors.text} size={24} />
+            } 
+            onPress={refreshing ? undefined : () => setShowInfo(!showInfo)} 
+            style={{ backgroundColor: theme.colors.card }}
+          />
+        </View>
+      )}
 
       {showInfo && selectedMachine && (
         <MapInfoCard 

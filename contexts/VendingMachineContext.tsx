@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VendingMachine } from '@/types/vendingMachine';
 import { useAuth } from './AuthContext';
+import { useNetwork } from './NetworkContext';
 
 // Sample data for now
 const mockVendingMachines: VendingMachine[] = [
@@ -115,6 +116,7 @@ const VendingMachineContext = createContext<VendingMachineContextProps>({
 
 export const VendingMachineProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const { user } = useAuth();
+  const { isConnected, cacheVendingMachines, getCachedMachines } = useNetwork();
   const [vendingMachines, setVendingMachines] = useState<VendingMachine[]>([]);
   const [filteredMachines, setFilteredMachines] = useState<VendingMachine[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -185,13 +187,28 @@ export const VendingMachineProvider: React.FC<{children: React.ReactNode}> = ({ 
   const getVendingMachines = async () => {
     setLoading(true);
     try {
-      // In a real app, fetch from Supabase
-      // For now, use mock data
-      setVendingMachines(mockVendingMachines);
-      return mockVendingMachines;
+      if (isConnected) {
+        // In a real app, fetch from Supabase
+        // For now, use mock data
+        setVendingMachines(mockVendingMachines);
+        
+        // Cache the data for offline use
+        await cacheVendingMachines(mockVendingMachines);
+        
+        return mockVendingMachines;
+      } else {
+        // Load from cache when offline
+        const cachedMachines = await getCachedMachines();
+        setVendingMachines(cachedMachines);
+        return cachedMachines;
+      }
     } catch (error) {
       console.error('Error fetching vending machines:', error);
-      return [];
+      
+      // Fallback to cached data on error
+      const cachedMachines = await getCachedMachines();
+      setVendingMachines(cachedMachines);
+      return cachedMachines;
     } finally {
       setLoading(false);
     }
@@ -200,10 +217,17 @@ export const VendingMachineProvider: React.FC<{children: React.ReactNode}> = ({ 
   // Get a specific vending machine by ID
   const getVendingMachineById = async (id: string) => {
     try {
-      // In a real app, fetch from Supabase
-      // For now, use mock data
-      const machine = mockVendingMachines.find(m => m.id === id) || null;
-      return machine;
+      if (isConnected) {
+        // In a real app, fetch from Supabase
+        // For now, use mock data
+        const machine = mockVendingMachines.find(m => m.id === id) || null;
+        return machine;
+      } else {
+        // Search in cached data when offline
+        const cachedMachines = await getCachedMachines();
+        const machine = cachedMachines.find(m => m.id === id) || null;
+        return machine;
+      }
     } catch (error) {
       console.error('Error fetching vending machine:', error);
       return null;
@@ -212,6 +236,10 @@ export const VendingMachineProvider: React.FC<{children: React.ReactNode}> = ({ 
 
   // Add a new vending machine
   const addVendingMachine = async (machineData: Omit<VendingMachine, 'id' | 'rating' | 'reviewCount' | 'imageUrl'> & { imageUri: string | null }) => {
+    if (!isConnected) {
+      throw new Error('Impossible d\'ajouter un distributeur en mode hors ligne');
+    }
+
     setLoading(true);
     try {
       // In a real app, upload to Supabase
@@ -235,7 +263,11 @@ export const VendingMachineProvider: React.FC<{children: React.ReactNode}> = ({ 
       };
       
       // Update state
-      setVendingMachines(prev => [newMachine, ...prev]);
+      const updatedMachines = [newMachine, ...vendingMachines];
+      setVendingMachines(updatedMachines);
+      
+      // Update cache
+      await cacheVendingMachines(updatedMachines);
     } catch (error) {
       console.error('Error adding vending machine:', error);
       throw error;
