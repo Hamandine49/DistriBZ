@@ -10,6 +10,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { VendingMachineProvider } from '@/contexts/VendingMachineContext';
 import { NetworkProvider } from '@/contexts/NetworkContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -41,14 +42,17 @@ export default function RootLayout() {
     <NetworkProvider>
       <ThemeProvider>
         <AuthProvider>
-          <VendingMachineProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <StatusBar style="auto" />
-          </VendingMachineProvider>
+          <NotificationProvider>
+            <VendingMachineProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="notification-settings" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+              <StatusBar style="auto" />
+            </VendingMachineProvider>
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </NetworkProvider>

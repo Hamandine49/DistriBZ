@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Map, List, CirclePlus as PlusCircle, Heart, User } from 'lucide-react-native';
+import { Map, List, CirclePlus as PlusCircle, Bell, Heart, User } from 'lucide-react-native';
+import NotificationBadge from '@/components/notifications/NotificationBadge';
 
 export default function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { theme } = useTheme();
@@ -51,6 +52,13 @@ export default function TabBar({ state, descriptors, navigation }: BottomTabBarP
               return (
                 <View style={[styles.addButton, { backgroundColor: theme.colors.primary }]}>
                   <PlusCircle size={iconSize + 4} color="#fff" />
+                </View>
+              );
+            case 'notifications':
+              return (
+                <View style={styles.notificationIconContainer}>
+                  <Bell size={iconSize} color={color} />
+                  <NotificationBadge size="small" />
                 </View>
               );
             case 'favorites':
@@ -121,5 +129,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  notificationIconContainer: {
+    position: 'relative',
   },
 });

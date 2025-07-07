@@ -3,15 +3,18 @@ import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, Image } f
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { useRouter } from 'expo-router';
-import { Moon, Sun, LogOut, User, Award, CircleHelp as HelpCircle, Heart, MapPin, Shield, Settings, ChevronRight, Trash2, Database } from 'lucide-react-native';
+import { Moon, Sun, LogOut, User, Award, CircleHelp as HelpCircle, Heart, MapPin, Shield, Settings, ChevronRight, Trash2, Database, Bell } from 'lucide-react-native';
 import Header from '@/components/ui/Header';
 import Button from '@/components/ui/Button';
+import NotificationBadge from '@/components/notifications/NotificationBadge';
 
 export default function ProfileScreen() {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
   const { clearCache, lastSyncTime, cachedMachines, isConnected } = useNetwork();
+  const { unreadCount, expoPushToken } = useNotifications();
   const router = useRouter();
   const [contributionCount, setContributionCount] = useState(0);
   const [badgesCount, setBadgesCount] = useState(0);
@@ -187,11 +190,28 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           {user && (
-            <MenuItem 
-              icon={<User size={20} color={theme.colors.primary} />}
-              title="Informations personnelles"
-              onPress={() => {}}
-            />
+            <>
+              <MenuItem 
+                icon={<User size={20} color={theme.colors.primary} />}
+                title="Informations personnelles"
+                onPress={() => {}}
+              />
+              
+              <View style={styles.notificationMenuItem}>
+                <MenuItem 
+                  icon={<Bell size={20} color={theme.colors.primary} />}
+                  title="Notifications"
+                  subtitle={expoPushToken ? 'Activées' : 'Désactivées'}
+                  onPress={() => router.push('/notification-settings')}
+                />
+                {unreadCount > 0 && (
+                  <NotificationBadge 
+                    size="small" 
+                    style={styles.notificationBadge}
+                  />
+                )}
+              </View>
+            </>
           )}
           
           <MenuItem 
@@ -465,6 +485,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: 12,
     marginTop: 2,
+  },
+  notificationMenuItem: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 24,
   },
   badge: {
     paddingHorizontal: 8,

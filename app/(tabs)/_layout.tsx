@@ -42,6 +42,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'Notifications',
+          tabBarLabel: 'Notifications',
+        }}
+      />
+      <Tabs.Screen
         name="favorites"
         options={{
           title: 'Favoris',
