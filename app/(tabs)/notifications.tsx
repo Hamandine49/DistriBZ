@@ -4,7 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { useRouter } from 'expo-router';
-import { Bell, Settings, Trash2, MarkAsRead } from 'lucide-react-native';
+import { Bell, Settings, Trash2, BookMarked as MarkAsRead } from 'lucide-react-native';
 import Header from '@/components/ui/Header';
 import EmptyState from '@/components/ui/EmptyState';
 import { supabase } from '@/lib/supabase';
