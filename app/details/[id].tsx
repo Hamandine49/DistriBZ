@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Platform, Share } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useVendingMachines } from '@/contexts/VendingMachineContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { MapPin, Navigation, Heart, Share as ShareIcon, Star, ArrowLeft, Clock, ChevronRight } from 'lucide-react-native';
+import { MapPin, Navigation, Heart, Star, ArrowLeft, Clock, ChevronRight } from 'lucide-react-native';
 import * as Linking from 'expo-linking';
 import ReviewsList from '@/components/reviews/ReviewsList';
 import Button from '@/components/ui/Button';
+import ShareButton from '@/components/ui/ShareButton';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function DetailsScreen() {
@@ -18,7 +19,6 @@ export default function DetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
-  const [shareLoading, setShareLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -63,53 +63,6 @@ export default function DetailsScreen() {
     });
   };
 
-  const handleShare = async () => {
-    if (!machine) return;
-    
-    setShareLoading(true);
-    
-    try {
-      // Create a more detailed share message
-      const shareMessage = `🏪 ${machine.name}\n\n📍 ${machine.address}\n\n⭐ Note: ${machine.rating.toFixed(1)}/5 (${machine.reviewCount} avis)\n💰 Prix moyen: ${machine.averagePrice}€\n\n🔗 Découvrez ce distributeur sur VendingFinder !`;
-      
-      // Generate a deep link URL (you can customize this based on your app's URL scheme)
-      const appUrl = `https://vendingfinder.app/details/${machine.id}`;
-      
-      const shareOptions = {
-        title: `${machine.name} - VendingFinder`,
-        message: Platform.OS === 'ios' ? shareMessage : `${shareMessage}\n\n${appUrl}`,
-        url: Platform.OS === 'ios' ? appUrl : undefined,
-      };
-
-      const result = await Share.share(shareOptions, {
-        dialogTitle: 'Partager ce distributeur',
-        excludedActivityTypes: Platform.OS === 'ios' ? [
-          'com.apple.UIKit.activity.PostToWeibo',
-          'com.apple.UIKit.activity.Print',
-          'com.apple.UIKit.activity.AssignToContact',
-          'com.apple.UIKit.activity.SaveToCameraRoll',
-          'com.apple.UIKit.activity.AddToReadingList',
-          'com.apple.UIKit.activity.PostToFlickr',
-          'com.apple.UIKit.activity.PostToVimeo',
-          'com.apple.UIKit.activity.PostToTencentWeibo'
-        ] : undefined,
-      });
-
-      if (result.action === Share.sharedAction) {
-        // Successfully shared
-        console.log('Content shared successfully');
-      } else if (result.action === Share.dismissedAction) {
-        // Share was dismissed
-        console.log('Share dismissed');
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-      // You could show an error message to the user here
-    } finally {
-      setShareLoading(false);
-    }
-  };
-
   const handleToggleFavorite = async () => {
     if (!user) {
       router.push('/(auth)/login');
@@ -123,6 +76,13 @@ export default function DetailsScreen() {
       setIsFavorited(!isFavorited);
     } catch (error) {
       console.error('Error toggling favorite:', error);
+    }
+  };
+
+  const handleShareComplete = (success: boolean) => {
+    if (success) {
+      console.log('Distributeur partagé avec succès');
+      // You could show a success message or track analytics here
     }
   };
 
@@ -176,19 +136,12 @@ export default function DetailsScreen() {
               />
             </TouchableOpacity>
             
-            <TouchableOpacity 
-              style={[
-                styles.actionButton, 
-                { 
-                  backgroundColor: theme.colors.card + 'E6',
-                  opacity: shareLoading ? 0.7 : 1
-                }
-              ]} 
-              onPress={handleShare}
-              disabled={shareLoading}
-            >
-              <ShareIcon size={24} color={theme.colors.text} />
-            </TouchableOpacity>
+            <ShareButton
+              machine={machine}
+              variant="icon"
+              shareOptions={{ trackSharing: true }}
+              onShareComplete={handleShareComplete}
+            />
           </View>
         </View>
         
@@ -233,22 +186,14 @@ export default function DetailsScreen() {
                 <Text style={styles.navigateButtonText}>Y aller</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                style={[
-                  styles.shareButton, 
-                  { 
-                    backgroundColor: theme.colors.secondary,
-                    opacity: shareLoading ? 0.7 : 1
-                  }
-                ]} 
-                onPress={handleShare}
-                disabled={shareLoading}
-              >
-                <ShareIcon size={20} color="#FFF" />
-                <Text style={styles.shareButtonText}>
-                  {shareLoading ? 'Partage...' : 'Partager'}
-                </Text>
-              </TouchableOpacity>
+              <ShareButton
+                machine={machine}
+                variant="secondary"
+                size="medium"
+                shareOptions={{ trackSharing: true }}
+                onShareComplete={handleShareComplete}
+                style={styles.shareButtonInRow}
+              />
             </View>
           </View>
           
@@ -366,6 +311,7 @@ const styles = StyleSheet.create({
     top: Platform.OS === 'ios' ? 60 : 40,
     right: 16,
     flexDirection: 'row',
+    gap: 8,
   },
   actionButton: {
     width: 40,
@@ -373,7 +319,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
   },
   contentContainer: {
     padding: 20,
@@ -448,19 +393,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     marginLeft: 8,
   },
-  shareButton: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
+  shareButtonInRow: {
     flex: 1,
-  },
-  shareButtonText: {
-    color: '#FFF',
-    fontFamily: 'Inter-Medium',
-    marginLeft: 8,
   },
   infoRow: {
     flexDirection: 'row',
