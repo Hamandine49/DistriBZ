@@ -18,6 +18,7 @@ export default function DetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -65,14 +66,47 @@ export default function DetailsScreen() {
   const handleShare = async () => {
     if (!machine) return;
     
+    setShareLoading(true);
+    
     try {
-      const result = await Share.share({
-        title: machine.name,
-        message: `Découvrez ce distributeur: ${machine.name} à ${machine.address}`,
-        url: `https://vendingfinder.com/details/${machine.id}`, // Replace with your app's URL scheme
+      // Create a more detailed share message
+      const shareMessage = `🏪 ${machine.name}\n\n📍 ${machine.address}\n\n⭐ Note: ${machine.rating.toFixed(1)}/5 (${machine.reviewCount} avis)\n💰 Prix moyen: ${machine.averagePrice}€\n\n🔗 Découvrez ce distributeur sur VendingFinder !`;
+      
+      // Generate a deep link URL (you can customize this based on your app's URL scheme)
+      const appUrl = `https://vendingfinder.app/details/${machine.id}`;
+      
+      const shareOptions = {
+        title: `${machine.name} - VendingFinder`,
+        message: Platform.OS === 'ios' ? shareMessage : `${shareMessage}\n\n${appUrl}`,
+        url: Platform.OS === 'ios' ? appUrl : undefined,
+      };
+
+      const result = await Share.share(shareOptions, {
+        dialogTitle: 'Partager ce distributeur',
+        excludedActivityTypes: Platform.OS === 'ios' ? [
+          'com.apple.UIKit.activity.PostToWeibo',
+          'com.apple.UIKit.activity.Print',
+          'com.apple.UIKit.activity.AssignToContact',
+          'com.apple.UIKit.activity.SaveToCameraRoll',
+          'com.apple.UIKit.activity.AddToReadingList',
+          'com.apple.UIKit.activity.PostToFlickr',
+          'com.apple.UIKit.activity.PostToVimeo',
+          'com.apple.UIKit.activity.PostToTencentWeibo'
+        ] : undefined,
       });
+
+      if (result.action === Share.sharedAction) {
+        // Successfully shared
+        console.log('Content shared successfully');
+      } else if (result.action === Share.dismissedAction) {
+        // Share was dismissed
+        console.log('Share dismissed');
+      }
     } catch (error) {
       console.error('Error sharing:', error);
+      // You could show an error message to the user here
+    } finally {
+      setShareLoading(false);
     }
   };
 
@@ -143,8 +177,15 @@ export default function DetailsScreen() {
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: theme.colors.card + 'E6' }]} 
+              style={[
+                styles.actionButton, 
+                { 
+                  backgroundColor: theme.colors.card + 'E6',
+                  opacity: shareLoading ? 0.7 : 1
+                }
+              ]} 
               onPress={handleShare}
+              disabled={shareLoading}
             >
               <ShareIcon size={24} color={theme.colors.text} />
             </TouchableOpacity>
@@ -183,13 +224,32 @@ export default function DetailsScreen() {
               <Text style={[styles.address, { color: theme.colors.text }]}>{machine.address}</Text>
             </View>
             
-            <TouchableOpacity 
-              style={[styles.navigateButton, { backgroundColor: theme.colors.primary }]} 
-              onPress={handleNavigate}
-            >
-              <Navigation size={20} color="#FFF" />
-              <Text style={styles.navigateButtonText}>Y aller</Text>
-            </TouchableOpacity>
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity 
+                style={[styles.navigateButton, { backgroundColor: theme.colors.primary }]} 
+                onPress={handleNavigate}
+              >
+                <Navigation size={20} color="#FFF" />
+                <Text style={styles.navigateButtonText}>Y aller</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.shareButton, 
+                  { 
+                    backgroundColor: theme.colors.secondary,
+                    opacity: shareLoading ? 0.7 : 1
+                  }
+                ]} 
+                onPress={handleShare}
+                disabled={shareLoading}
+              >
+                <ShareIcon size={20} color="#FFF" />
+                <Text style={styles.shareButtonText}>
+                  {shareLoading ? 'Partage...' : 'Partager'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
           <View style={styles.section}>
@@ -370,6 +430,10 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   navigateButton: {
     flexDirection: 'row',
     paddingVertical: 10,
@@ -377,8 +441,23 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
   },
   navigateButtonText: {
+    color: '#FFF',
+    fontFamily: 'Inter-Medium',
+    marginLeft: 8,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  shareButtonText: {
     color: '#FFF',
     fontFamily: 'Inter-Medium',
     marginLeft: 8,
